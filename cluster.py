@@ -334,9 +334,9 @@ if __name__ == '__main__':
     p = Pool(4)
     path = sys.path[0] + '/dataset/'
     #  path | title | N: 聚类数 | dc method | dc per | rho method | delta method | use_halo | plot
-    p.apply_async(cluster, args=(path + 'origin_1000.dat', 'origin-1000', 5, 0, 2, 1, 1, False))
+    # p.apply_async(cluster, args=(path + 'origin_1000.dat', 'origin-1000', 5, 0, 2, 1, 1, False))
     #  p.apply_async(cluster, args=(path + 'origin_4000.dat', 'origin-4000', 5, 0, 2, 1, 1, True))
-    #  p.apply_async(cluster, args=(path + 'flame.dat', 'flame', 2, 0, 1, 1, 1, True))
+    p.apply_async(cluster, args=(path + 'flame.dat', 'flame', 2, 0, 1, 1, 1, False))
     #  p.apply_async(cluster, args=(path + 'spiral.dat', 'spiral', 3, 0, 3))
     #  p.apply_async(cluster, args=(path + 'aggregation.dat', 'aggregation', 7, 0, 3))
     #  p.apply_async(cluster, args=(path + 'R15.dat', 'R15', 15, 0, 20))

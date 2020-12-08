@@ -10,6 +10,7 @@ import pandas as pd
 from multiprocessing import Pool
 
 
+
 class DPC(object):
     """
     1. 读取点
@@ -25,6 +26,8 @@ class DPC(object):
     def __init__(self, path, data_name, n=0, dc_method=0, dc_percent=1, rho_method=1, delta_method=1, use_halo=False, plot=None):
         # 定义密度筛选阈值，取值范围：[0，1）
         rho_threshold = 0.45
+        # 定义使用相同的dc，还是筛选后再计算一次dc，前者为0，后者为1
+        dc_again = 0
 
         # 读取点，计算距离
         points, d_matrix, d_list, min_dis, max_dis, max_id = self.load_points_cacl_distance(path)
@@ -36,15 +39,22 @@ class DPC(object):
         points_new, d_matrix_new, d_list_new, min_dis_new, max_dis_new, max_id_new, pending_points = self.del_points(points, rho, rho_threshold)
 
         # 重新计算dc
-        # dc_new = self.get_dc(d_matrix_new, d_list_new, min_dis_new, max_dis_new, max_id_new, dc_percent, dc_method)
-        # print('dc_new: ', dc_new)
-
-        # 计算筛选后的rho
-        rho_new = self.get_rho(d_matrix_new, max_id_new, dc, rho_method)
-        # 计算 delta
-        delta = self.get_delta(d_matrix_new, max_id_new, rho_new, delta_method)
-        # 确定聚类中心
-        center, gamma = self.get_center(d_matrix_new, rho_new, delta, dc, n, max_id_new)
+        if dc_again:
+            dc_new = self.get_dc(d_matrix_new, d_list_new, min_dis_new, max_dis_new, max_id_new, dc_percent, dc_method)
+            print('dc_new: ', dc_new)
+            # 计算筛选后的rho
+            rho_new = self.get_rho(d_matrix_new, max_id_new, dc_new, rho_method)
+            # 计算 delta
+            delta = self.get_delta(d_matrix_new, max_id_new, rho_new, delta_method)
+            # 确定聚类中心
+            center, gamma = self.get_center(d_matrix_new, rho_new, delta, dc_new, n, max_id_new)
+        else:
+            # 计算筛选后的rho
+            rho_new = self.get_rho(d_matrix_new, max_id_new, dc, rho_method)
+            # 计算 delta
+            delta = self.get_delta(d_matrix_new, max_id_new, rho_new, delta_method)
+            # 确定聚类中心
+            center, gamma = self.get_center(d_matrix_new, rho_new, delta, dc, n, max_id_new)
 
         # 将待定的center变换为真正points中的序号，pending_points中存的是筛选后的点在原数据集中的序号，center是在pending_points中的序号
         center_true = np.empty(len(center), dtype=int)
@@ -55,7 +65,7 @@ class DPC(object):
         print('center_true:', center_true)
 
         # 聚类
-        cluster = self.assign(d_matrix, rho, center_true)
+        cluster = self.assign(d_matrix, rho, center_true, max_id)
         halo = []
         if use_halo:
             # halo
@@ -242,7 +252,7 @@ class DPC(object):
 
         return center, gamma
 
-    def assign(self, d, rho, center):
+    def assign(self, d, rho, center, max_id):
         """ 聚类，分配点
 
         Desc:
@@ -261,11 +271,13 @@ class DPC(object):
         """
         print('Assign')
         cluster = dict()  # center: points
+        rho_tmp = rho.copy()
         for i in center:
             cluster[i] = []
+            rho_tmp[i] = float('inf')
 
         link = dict()
-        order_rho_index = rho.argsort()[-1::-1]  # 局部密度降序
+        order_rho_index = rho_tmp.argsort()[-1::-1]  # 局部密度降序
         for i, v in enumerate(order_rho_index):
             if v in center:
                 link[v] = v
@@ -279,9 +291,9 @@ class DPC(object):
             cluster[c].append(i)
 
         # 最近中心分配
-        #  for i in range(max_id):
-            #  c = d.loc[i, center].idxmin()
-            #  cluster[c].append(i)
+        # for i in range(max_id):
+        #     c = d.loc[i, center].idxmin()
+        #     cluster[c].append(i)
 
         return cluster
 
@@ -406,8 +418,8 @@ if __name__ == '__main__':
     path = sys.path[0] + '/dataset/'
     #  path | title | N: 聚类数 | dc method | dc per | rho method | delta method | use_halo | plot
     # p.apply_async(cluster, args=(path + 'origin_4000.dat', 'origin-4000', 5, 0, 2, 1, 1, False))
-    p.apply_async(cluster, args=(path + 'origin_1000.dat', 'origin-1000', 5, 0, 2, 1, 1, False))
-    # p.apply_async(cluster, args=(path + 'flame.dat', 'flame', 2, 0, 1, 1, 1, True))
+    # p.apply_async(cluster, args=(path + 'origin_1000.dat', 'origin-1000', 5, 0, 2, 1, 1, False))
+    p.apply_async(cluster, args=(path + 'flame.dat', 'flame', 2, 0, 1, 1, 1, False))
     # p.apply_async(cluster, args=(path + 'spiral.dat', 'spiral', 3, 0, 3))
     # p.apply_async(cluster, args=(path + 'aggregation.dat', 'aggregation', 7, 0, 3))
     # p.apply_async(cluster, args=(path + 'R15.dat', 'R15', 15, 0, 20))
